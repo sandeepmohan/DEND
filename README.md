@@ -9,7 +9,7 @@
 2. **State and justify your database schema design and ETL pipeline**
 
     The data warehouse is in a star schema although it could be optimized further. The star schema makes sense as it enables queries with minimum joins. It also allows for the creation of cubes and materialized views that would support reporting and faster ad-hoc analysis. Opportunities to improve/optimize would be:
-    > Moving location, level and user agent fields from fact table to user dimension. It belongs there logically and is not of itself additive in any meaningful fashion
+    + Moving location, level and user agent fields from fact table to user dimension. It belongs there logically and is not of itself additive in any meaningful fashion
     + Songplay duration Startime to Next Song would need to be calculated and added as a fact. This is additive (total time the service was used) but has independent value when combined with dimensions. A song that is not played all the way may not be as valuable even if frequently played/selected by a lot of users
     + Add a foreign key linking user to time dimensions as a significant amount of analysis will likely be focused on Users (time and method of access), and converting them from free to paid
     + Adding serial keys and foreign key relationships especially on fact table so that join fields are not subject to entry error from upstream systems
