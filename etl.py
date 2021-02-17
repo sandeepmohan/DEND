@@ -14,7 +14,7 @@ def get_files(filepath):
     
     return all_files
 
-def process_song_file(cur, filepath):
+def process_song_file(cur, conn, filepath):
     # open song file
     df = pd.read_json(filepath, lines=True)
     song_data = list(df[['song_id', 'title', 'artist_id', 'year', 'duration']].values[0])
@@ -34,7 +34,7 @@ def process_song_file(cur, filepath):
     cur.execute(artist_table_insert, artist_data)
 
 
-def process_log_file(cur, filepath):
+def process_log_file(cur, conn, filepath):
     # open log file
     logs_df = pd.read_json(filepath, lines=True)
 
@@ -73,7 +73,7 @@ def process_log_file(cur, filepath):
         
     # insert songplay records
     sql_query = "SELECT DISTINCT s.title song, a.name artist, s.duration, s.song_id, a.artist_id FROM songs s, artists a WHERE s.artist_id = a.artist_id;"
-    song_match_df = pd.read_sql_query(cur.execute(sql_query))
+    song_match_df = pd.read_sql_query(sql_query, conn)
     combined_df = pd.merge(song_match_df, next_song_df,  how='right', left_on=['artist','song'], right_on = ['artist','song'])
     songplay_df = combined_df[['ts','userId','level', 'song_id', 'artist_id', 'sessionId','location','userAgent']]
     
@@ -92,7 +92,7 @@ def process_log_file(cur, filepath):
     songplay_table_insert = ("""
     INSERT INTO songplay(start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)VALUES(%s,%s,%s,%s,%s,%s,%s,%s);
     """)
-    songplay_data = songplay_df.values.tolist()
+    songplay_data = songplay_df.values[0].tolist()
     cur.execute(songplay_table_insert, songplay_data)
 
 
@@ -110,7 +110,7 @@ def process_data(cur, conn, filepath, func):
 
     # iterate over files and process
     for i, datafile in enumerate(all_files, 1):
-        func(cur, datafile)
+        func(cur, conn, datafile)
         conn.commit()
         print('{}/{} files processed.'.format(i, num_files))
 
