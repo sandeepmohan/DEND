@@ -16,36 +16,27 @@ def get_files(filepath):
 
 def process_song_file(cur, filepath):
     # open song file
-    song_files = get_files('data/song_data/')
-    songs = []
-    for s in song_files:
-        data = pd.read_json(s, lines=True)
-        songs.append(data)
-    song_df = pd.concat(songs, ignore_index=True )
+    df = pd.read_json(filepath, lines=True)
+    song_data = list(df[['song_id', 'title', 'artist_id', 'year', 'duration']].values[0])
     
     # insert song record
     song_table_insert = ("""
     INSERT INTO songs(song_id,title,artist_id,year,duration)VALUES(%s,%s,%s,%s,%s);
     """)
-    song_data = song_df[['song_id','title','artist_id','year','duration']].values.tolist()
+    song_data = list(df[['song_id', 'title', 'artist_id', 'year', 'duration']].values[0])
     cur.execute(song_table_insert, song_data)
     
     # insert artist record
     artist_table_insert = ("""
     INSERT INTO artists(artist_id,name,location,latitude,longitude)VALUES(%s,%s,%s,%s,%s);
     """)
-    artist_data = song_df[['artist_id','artist_name','artist_location','artist_latitude', 'artist_longitude']].values.tolist()
+    artist_data = list(df[['artist_id','artist_name','artist_location','artist_latitude', 'artist_longitude']].values[0])
     cur.execute(artist_table_insert, artist_data)
 
 
 def process_log_file(cur, filepath):
     # open log file
-    #logs_files = get_files(filepath)
-    logs = []
-    for l in logs_files:
-        data = pd.read_json(l, lines=True)
-        logs.append(data)
-    logs_df = pd.concat(logs, ignore_index=True)
+    logs_df = pd.read_json(filepath, lines=True)
 
     # filter by NextSong action
     next_song_df = logs_df[logs_df['page']=='NextSong']
@@ -61,6 +52,10 @@ def process_log_file(cur, filepath):
     
     # insert time data records
     time_df = next_song_df[['ts', 'hour','day', 'weekofyear','month','year','weekday']]
+    
+    time_table_insert = ("""
+    INSERT INTO time(start_time,hour,day,week,month,year,weekday)VALUES(%s,%s,%s,%s,%s,%s,%s);
+    """)
 
     for i, row in time_df.iterrows():
         cur.execute(time_table_insert, list(row))
@@ -69,13 +64,16 @@ def process_log_file(cur, filepath):
     user_df = logs_df[['userId', 'firstName', 'lastName', 'gender', 'level']]
 
     # insert user records
+    user_table_insert = ("""
+    INSERT INTO users(user_id,first_name,last_name,gender,level)VALUES(%s,%s,%s,%s,%s);
+    """)
     for i, row in user_df.iterrows():
         cur.execute(user_table_insert, row)
         
         
     # insert songplay records
     sql_query = "SELECT DISTINCT s.title song, a.name artist, s.duration, s.song_id, a.artist_id FROM songs s, artists a WHERE s.artist_id = a.artist_id;"
-    song_match_df = pd.read_sql_query(sql_query, conn)
+    song_match_df = pd.read_sql_query(cur.execute(sql_query))
     combined_df = pd.merge(song_match_df, next_song_df,  how='right', left_on=['artist','song'], right_on = ['artist','song'])
     songplay_df = combined_df[['ts','userId','level', 'song_id', 'artist_id', 'sessionId','location','userAgent']]
     
@@ -91,6 +89,9 @@ def process_log_file(cur, filepath):
         #    songid, artistid = None, None
 
         # insert songplay record
+    songplay_table_insert = ("""
+    INSERT INTO songplay(start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)VALUES(%s,%s,%s,%s,%s,%s,%s,%s);
+    """)
     songplay_data = songplay_df.values.tolist()
     cur.execute(songplay_table_insert, songplay_data)
 
