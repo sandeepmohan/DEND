@@ -20,7 +20,7 @@
 
 > **Note:** The 'crows feet' notation is indicative of the 'suggested' schema I have proposed. Not the one implemented in the project.
 
-[![Optimized Schema](SchemaERD.png "Schema following optimizations outlined in response to requirement 2 above")]
+![Optimized Schema](SchemaERD.png "Schema following optimizations outlined in response to requirement 2 above")
 
 ### Files included and their function
 
