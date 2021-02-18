@@ -10,47 +10,46 @@ time_table_drop = "DROP TABLE IF EXISTS time CASCADE;"
 
 songplay_table_create = ("""
 CREATE TABLE IF NOT EXISTS
-songplay(sp_id serial PRIMARY KEY, 
-         start_time TIMESTAMP, 
-         user_id int, 
+songplay(start_time TIMESTAMP, 
+         user_id int NOT NULL, 
          level char(10) NOT NULL, 
          song_id char(100), 
          artist_id char(100), 
-         session_id char(100), 
+         session_id char(100) NOT NULL, 
          location varchar(255), 
-         user_agent varchar(255)
-         );
+         user_agent varchar(255),
+         PRIMARY KEY (start_time, user_id, session_id));
 """)
 
 
 user_table_create = ("""
 CREATE TABLE IF NOT EXISTS
-users(u_id serial PRIMARY KEY,
-      user_id varchar(100),
+users(user_id varchar(100) NOT NULL,
       first_name varchar(255),
       last_name varchar(255), 
       gender varchar(10), 
-      level varchar(10));
+      level varchar(10) NOT NULL,
+      PRIMARY KEY (user_id, level));
 """)
 
 song_table_create = ("""
 CREATE TABLE IF NOT EXISTS
-songs(s_id serial PRIMARY KEY,
-      song_id varchar(100),
+songs(song_id varchar(100) NOT NULL,
       title varchar(255),
       artist_id varchar(100) NOT NULL, 
       year smallint,
-      duration float);
+      duration float,
+      PRIMARY KEY (song_id, artist_id));
 """)
 
 artist_table_create = ("""
 CREATE TABLE IF NOT EXISTS
-artists(a_id serial PRIMARY KEY,
-        artist_id varchar(100),
-        name varchar(255),
+artists(artist_id varchar(100) NOT NULL,
+        name varchar(255) NOT NULL,
         location varchar(255),
         latitude float(8),
-        longitude float(8));
+        longitude float(8),
+        PRIMARY KEY (artist_id));
 
 
 """)
@@ -74,7 +73,10 @@ INSERT INTO songplay(start_time, user_id, level, song_id, artist_id, session_id,
 """)
 
 user_table_insert = ("""
-INSERT INTO users(user_id,first_name,last_name,gender,level)VALUES(%s,%s,%s,%s,%s);
+INSERT INTO users(user_id,first_name,last_name,gender,level)VALUES(%s,%s,%s,%s,%s)
+ON CONFLICT (user_id,level)
+DO
+    UPDATE SET first_name = '[Duplicate]';
 
 """)
 
@@ -83,9 +85,11 @@ INSERT INTO songs(song_id,title,artist_id,year,duration)VALUES(%s,%s,%s,%s,%s);
 """)
 
 artist_table_insert = ("""
-INSERT INTO artists(artist_id,name,location,latitude,longitude)VALUES(%s,%s,%s,%s,%s);
+INSERT INTO artists(artist_id,name,location,latitude,longitude)VALUES(%s,%s,%s,%s,%s)
+ON CONFLICT (artist_id)
+DO
+    UPDATE SET name = '[Duplicate]'|| ': '|| artists.name;
 """)
-
 
 time_table_insert = ("""
 INSERT INTO time(start_time,hour,day,week,month,year,weekday)VALUES(%s,%s,%s,%s,%s,%s,%s);
@@ -96,6 +100,14 @@ INSERT INTO time(start_time,hour,day,week,month,year,weekday)VALUES(%s,%s,%s,%s,
 song_select = ("""
 SELECT s.title song, a.name artist, s.duration, s.song_id, a.artist_id
 FROM songs s, artists a
+WHERE s.artist_id = a.artist_id;
+""")
+
+# Match Song and Artists
+
+song_artist_match = ("""
+SELECT DISTINCT s.title song, a.name artist, s.duration, s.song_id, a.artist_id 
+FROM songs s, artists a 
 WHERE s.artist_id = a.artist_id;
 """)
 

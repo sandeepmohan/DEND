@@ -5,36 +5,50 @@ import pandas as pd
 import sql_queries
 
 
-def get_files(filepath):
-    all_files = []
-    for root, dirs, files in os.walk(filepath):
-        files = glob.glob(os.path.join(root,'*.json'))
-        for f in files :
-            all_files.append(os.path.abspath(f))
-    
-    return all_files
-
 def process_song_file(cur, conn, filepath):
+    
+    """
+    Description: This function is responsible for transforming the song files and loading the relevant fields into the schema with objective to parse song and artist data and load it into the database
+
+    Arguments:
+        cur: the cursor object.
+        conn: connection to the database.
+        filepath: log data or song data file path.
+
+    Returns:
+        - A dataframe created by reading in the parsed json files containing song and artist data named 'df'
+        - list objects for the transformed values of above in preparation to load into the relevant tables
+        
+    """
+    
     # open song file
     df = pd.read_json(filepath, lines=True)
     song_data = list(df[['song_id', 'title', 'artist_id', 'year', 'duration']].values[0])
     
     # insert song record
-    song_table_insert = ("""
-    INSERT INTO songs(song_id,title,artist_id,year,duration)VALUES(%s,%s,%s,%s,%s);
-    """)
     song_data = list(df[['song_id', 'title', 'artist_id', 'year', 'duration']].values[0])
-    cur.execute(song_table_insert, song_data)
+    cur.execute(sql_queries.song_table_insert, song_data)
     
     # insert artist record
-    artist_table_insert = ("""
-    INSERT INTO artists(artist_id,name,location,latitude,longitude)VALUES(%s,%s,%s,%s,%s);
-    """)
     artist_data = list(df[['artist_id','artist_name','artist_location','artist_latitude', 'artist_longitude']].values[0])
-    cur.execute(artist_table_insert, artist_data)
+    cur.execute(sql_queries.artist_table_insert, artist_data)
 
 
 def process_log_file(cur, conn, filepath):
+    
+    """
+    Description: This function is responsible for transforming the listener session logs files and loading the relevant fields into the schema
+
+    Arguments:
+        cur: the cursor object.
+        conn: connection to the database.
+        filepath: log data or song data file path.
+
+    Returns:
+        - Three dataframes: 'logs_df', 'next_song_df', 'song_match_df' and 'combined_df' created as a result of transformation steps
+        - list objects for the values of above in preparation to load into the relevant tables
+    """
+    
     # open log file
     logs_df = pd.read_json(filepath, lines=True)
 
@@ -53,27 +67,20 @@ def process_log_file(cur, conn, filepath):
     # insert time data records
     time_df = next_song_df[['ts', 'hour','day', 'weekofyear','month','year','weekday']]
     
-    time_table_insert = ("""
-    INSERT INTO time(start_time,hour,day,week,month,year,weekday)VALUES(%s,%s,%s,%s,%s,%s,%s);
-    """)
 
     for i, row in time_df.iterrows():
-        cur.execute(time_table_insert, list(row))
+        cur.execute(sql_queries.time_table_insert, list(row))
 
     # load user table
     user_df = logs_df[['userId', 'firstName', 'lastName', 'gender', 'level']]
 
     # insert user records
-    user_table_insert = ("""
-    INSERT INTO users(user_id,first_name,last_name,gender,level)VALUES(%s,%s,%s,%s,%s);
-    """)
     for i, row in user_df.iterrows():
-        cur.execute(user_table_insert, row)
+        cur.execute(sql_queries.user_table_insert, row)
         
         
     # insert songplay records
-    sql_query = "SELECT DISTINCT s.title song, a.name artist, s.duration, s.song_id, a.artist_id FROM songs s, artists a WHERE s.artist_id = a.artist_id;"
-    song_match_df = pd.read_sql_query(sql_query, conn)
+    song_match_df = pd.read_sql_query(sql_queries.song_artist_match, conn)
     combined_df = pd.merge(song_match_df, next_song_df,  how='right', left_on=['artist','song'], right_on = ['artist','song'])
     songplay_df = combined_df[['ts','userId','level', 'song_id', 'artist_id', 'sessionId','location','userAgent']]
     
@@ -88,15 +95,28 @@ def process_log_file(cur, conn, filepath):
         #else:
         #    songid, artistid = None, None
 
-        # insert songplay record
-    songplay_table_insert = ("""
-    INSERT INTO songplay(start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)VALUES(%s,%s,%s,%s,%s,%s,%s,%s);
-    """)
+    # insert songplay record
     songplay_data = songplay_df.values[0].tolist()
-    cur.execute(songplay_table_insert, songplay_data)
+    cur.execute(sql_queries.songplay_table_insert, songplay_data)
 
 
 def process_data(cur, conn, filepath, func):
+    
+    """
+    Description: This function is responsible for listing the files in a directory,
+    and then executing the ingest process for each file according to the function
+    that performs the transformation to save it to the database.
+
+    Arguments:
+        cur: the cursor object.
+        conn: connection to the database.
+        filepath: log data or song data file path.
+        func: function that transforms the data and inserts it into the database.
+
+    Returns:
+        None
+    """
+    
     # get all files matching extension from directory
     all_files = []
     for root, dirs, files in os.walk(filepath):
